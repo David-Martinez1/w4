@@ -1,0 +1,60 @@
+name: GitHub Classroom Workflow
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+jobs:
+  build:
+    name: Autograding
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      # TODO build, test and deploy project
+      
+      - name: Setup .NET SDK 
+        uses: actions/setup-dotnet@v2
+        with:
+          dotnet-version: 5.0.x
+      
+      #- name: Install dependencies
+      #  run: dotnet restore src/lab1/Lab1-rsoi.sln
+      
+      #- name: Build
+      #  run: dotnet publish src/lab1/WebApplication3.csproj -c Release -o PersonsPublish --no-restore
+      
+      - name: Test
+        run:  dotnet test src/TestProject/TestProject.csproj
+      
+      - name: Upload dotnet test results
+        uses: actions/upload-artifact@v3
+        with:
+          name: dotnet-results
+          path: src/lab1/TestResults
+        # Use always() to always run this step to publish test results when there are test failures
+        if: ${{ always() }}
+
+      - name: Build
+        run: |
+             docker-compose up -d --build 
+             docker-compose logs
+             docker-compose ps
+      - name: Run API Tests
+        uses: matt-ball/newman-action@master
+        with:
+          collection: postman/[inst] Lab1.postman_collection.json
+          environment: postman/[inst][local] Lab1.postman_environment.json
+          delayRequest: 100
+          reporters: '[ "cli" ]'
+
+      - name: Deploy
+        env:
+          deploy_url: ${{ secrets.DEPLOY_HOOK_URL }}
+        run: |
+          curl "$deploy_url"
+
